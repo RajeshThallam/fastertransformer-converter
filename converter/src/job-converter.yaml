@@ -20,7 +20,7 @@ spec:
   ttlSecondsAfterFinished: 60
   template:
     spec:
-      serviceAccountName: triton-sa2
+      serviceAccountName: triton-sa
       volumes:
         - name: pvc-converter-vol
           persistentVolumeClaim:
@@ -33,8 +33,10 @@ spec:
             nvidia.com/gpu: 1
         command: ["/bin/bash",  
                   "/run-converter-jax-to-fastertransformer.sh",
-                  "gs://rl-triton-repository2/t5_1_1_small/",
-                  "gs://rl-triton-repository2/t5_1_1_small_ft/"]
+                  "t5-small",
+                  "gs://rl-triton-repository/t5_1_1_small/",
+                  "gs://rl-triton-repository/t5_1_1_small_ft/",
+                  "1"]
         volumeMounts:
         - mountPath: "/models"
           name: pvc-converter-vol

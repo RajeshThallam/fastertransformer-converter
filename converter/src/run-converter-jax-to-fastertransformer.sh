@@ -39,10 +39,8 @@ TIMESTAMP=`date "+%Y-%m-%d %H:%M:%S"`
 echo "NVIDIA Driver version"
 nvidia-smi
 
-df -h
-
 # Set variables
-MODEL_NAME=$2
+MODEL_NAME=$1
 echo "MODEL_NAME = ${MODEL_NAME}"
 
 GCS_JAX_CHECKPOINT=$2
