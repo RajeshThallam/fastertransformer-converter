@@ -25,12 +25,16 @@ spec:
       containers:
       - name: triton-ft-evaluator
         image: gcr.io/rl-llm-dev/ft-evaluator
+        resources:
+          limits:
+            memory: "20Gi"
+            cpu: "8000m"
         command: [
           "python", 
           "eval_summarization.py", 
-          "--model_config_location", "gs://rl-llm-models/t511-base-ft/t511_base/1/1-gpu/config.ini",
+          "--model_config_location", "gs://rl-llm-models/ul2-xsum-ft/ul2/1/1-gpu/config.ini",
           "--output_metrics", "gs://rl-llm-models/output/metrics.json",
           "--samples_path", "gs://rl-llm-models/cnn-samples.txt",
-          "--model_name", "t511_base",
+          "--model_name", "ul2",
           "--url", "triton-server.default.svc.cluster.local:8000"]
       restartPolicy: Never

@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-converter
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+  storageClassName: standard-rwo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triton-server-deployment
+  labels:
+    app: triton-server
+    version: v1 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triton-server
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: triton-server
+        version: v1
+    spec:
+      serviceAccountName: triton-sa
+      volumes:
+        - name: pvc-converter-vol
+          persistentVolumeClaim:
+            claimName: pvc-converter
+      containers:
+        - name: triton-inference-server
+          image: gcr.io/rl-llm-dev/bignlp-inference:latest
+          command: [ "/bin/bash", "-c", "--" ]
+          args: [ "while true; do sleep 30; done;" ]
+          volumeMounts:
+          - mountPath: "/tmp"
+            name: pvc-converter-vol

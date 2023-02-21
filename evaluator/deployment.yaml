@@ -1,17 +1,15 @@
-# Copyright 2023 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-tmp-model
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+  storageClassName: standard-rwo
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,7 +18,7 @@ metadata:
     app: triton-server
     version: v1 
 spec:
-  replicas: 1 
+  replicas: 1
   selector:
     matchLabels:
       app: triton-server 
@@ -32,6 +30,10 @@ spec:
         version: v1
     spec:
       serviceAccountName: triton-sa
+      volumes:
+        - name: pvc-tmp-vol
+          persistentVolumeClaim:
+            claimName: pvc-tmp-model
       nodeSelector:
         cloud.google.com/gke-accelerator: nvidia-tesla-a100
       containers:
@@ -41,8 +43,10 @@ spec:
           resources:
             limits:
               nvidia.com/gpu: 1
-              ephemeral-storage: 10Gi
-          args: ["tritonserver", "--model-store=gs://rl-llm-models/t511-base-ft", "--log-error=1", "--log-verbose=99", "--log-info=1", "--log-warning=1"]
+          args: ["tritonserver", "--model-store=gs://rl-llm-models/ul2-xsum-ft", "--log-error=1", "--log-verbose=99", "--log-info=1", "--log-warning=1"]
+          volumeMounts:
+          - mountPath: "/tmp"
+            name: pvc-tmp-vol
           ports:
             - containerPort: 8000
               name: http
