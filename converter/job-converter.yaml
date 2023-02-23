@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-converter
+  namespace: triton   # <== Change to the name of your namespace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: standard-rwo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jax-to-ft-converter-job
+  namespace: triton   # <== Change to the name of your namespace
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    spec:
+      serviceAccountName: triton-sa    # <== Change to your Service Account name
+      volumes:
+        - name: pvc-converter-vol
+          persistentVolumeClaim:
+            claimName: pvc-converter
+      containers:
+      - name: jax-to-ft-converter
+        image: gcr.io/my-project/llms-on-gke/jax-to-fastertransformer    # <== Change to the docker image you built
+        resources:
+          limits:
+            nvidia.com/gpu: 1   # <== Change to the number of GPUs
+        command: ["/bin/bash",  
+                  "/run-converter-jax-to-fastertransformer.sh",
+                  "t5-small",   # <== Change to your model name. Same as defined for triton serving.
+                  "gs://my-bucket/t5_1_1_small/",    # <== [source] Change to the location of your JAX checkpoint
+                  "gs://my-bucket/t5_1_1_small_ft/",  # <== [destination] Change to the location of your FT converted model
+                  "1"]    # <== Change to the number of GPUs
+        volumeMounts:
+        - mountPath: "/models"
+          name: pvc-converter-vol
+      restartPolicy: Never
+  backoffLimit: 4

@@ -13,8 +13,7 @@
 # limitations under the License.
 
 '''
-This example is used to verify the correctess on summarization task. So, we don't
-put benchmark testing in this example.
+This example is used to verify the correctess on summarization task.
 '''
 
 from __future__ import print_function
@@ -34,7 +33,6 @@ from tritonclient.utils import np_to_triton_dtype
 import gcsfs
 import json
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 def create_inference_server_client(url, concurrency, verbose):
     return httpclient.InferenceServerClient(
@@ -52,11 +50,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_config_location', type=str,
                         help='Path to config.init file on GCS')
-    parser.add_argument('--output_metrics', type=str)
-    parser.add_argument('--model_name', type=str)
-    parser.add_argument('--url', type=str)
+    parser.add_argument('--output_metrics', type=str,
+                        help='GCS path to write the results. Must end with .json')
+    parser.add_argument('--model_name', type=str,
+                        help='Name of the model being served.')
+    parser.add_argument('--url', type=str,
+                        help='Service url of the model being server.')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--samples_path', type=str)
+    parser.add_argument('--samples_path', type=str,
+                        help='GCS path to the location of samples to be infered.')
     parser.add_argument('--max_seq_len', type=int, default=200)
 
     args = parser.parse_args()

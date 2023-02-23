@@ -16,25 +16,25 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: triton-ft-evaluator-job
-  namespace: default
+  namespace: triton   # <== Change to the name of your namespace
 spec:
   ttlSecondsAfterFinished: 60
   template:
     spec:
-      serviceAccountName: triton-sa
+      serviceAccountName: triton-sa    # <== Change to your Service Account name
       containers:
       - name: triton-ft-evaluator
-        image: gcr.io/rl-llm-dev/ft-evaluator
+        image: gcr.io/my-project/ft-evaluator    # <== Change to the docker image you built
         resources:
           limits:
             memory: "20Gi"
             cpu: "8000m"
         command: [
           "python", 
-          "eval_summarization.py", 
-          "--model_config_location", "gs://rl-llm-models/ul2-xsum-ft/ul2/1/1-gpu/config.ini",
-          "--output_metrics", "gs://rl-llm-models/output/metrics.json",
-          "--samples_path", "gs://rl-llm-models/cnn-samples.txt",
-          "--model_name", "ul2",
-          "--url", "triton-server.default.svc.cluster.local:8000"]
+          "eval_summarization.py",
+          "--model_config_location", "gs://my-bucket/ul2-xsum-ft/ul2/1/1-gpu/config.ini",    # <== GCS path to the location of your config.ini file
+          "--output_metrics", "gs://my-bucket/output/metrics.json",    # <== GCS path to write the results. Must end with '.json'
+          "--samples_path", "gs://my-bucket/cnn-samples.txt",    # <== GCS path to the location of samples to be infered
+          "--model_name", "ul2",   # <== Change to your model name. Same as defined for triton serving
+          "--url", "triton-server.default.svc.cluster.local:8000"]    # <== Service URL of the model being served
       restartPolicy: Never
