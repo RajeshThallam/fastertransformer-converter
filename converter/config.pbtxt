@@ -14,7 +14,7 @@
 
 name: "@@MODEL_NAME@@"
 backend: "fastertransformer"
-default_model_filename: "@@MODEL_NAME@@"
+default_model_filename: "@@TENSOR_PARA_SIZE@@-gpu"
 max_batch_size: 1024
 input [
   {

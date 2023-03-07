@@ -82,7 +82,7 @@ echo "[INFO] ${TIMESTAMP} Completed converting JAX checkpoint to FasterTransform
 echo "[INFO] ${TIMESTAMP} Organizing model repository for serving"
 cd $LOCAL_FT_CHECKPOINT
 mkdir -p $LOCAL_FT_CHECKPOINT/${MODEL_NAME}/1
-mv $LOCAL_FT_CHECKPOINT/1-gpu $LOCAL_FT_CHECKPOINT/${MODEL_NAME}/1/
+mv $LOCAL_FT_CHECKPOINT/${TENSOR_PARALLELISM}-gpu $LOCAL_FT_CHECKPOINT/${MODEL_NAME}/1/
 
 # Format Triton config
 cp /triton/config.pbtxt $LOCAL_FT_CHECKPOINT/${MODEL_NAME}/config.pbtxt
