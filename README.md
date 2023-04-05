@@ -7,6 +7,16 @@ This repository compiles prescriptive guidance and code sample to serve Large La
 
 The solution provides a Terraform standardized template to [deploy Triton inference server on GKE](https://github.com/jarokaz/triton-on-gke-sandbox) and integrate with other Google Cloud Managed Services.
 
+## Table of Contents
+---
+  - [High Level Flow](#high-level-flow)
+  - [Checkpoints](#checkpoints)
+  - [Getting started](#getting-started)
+  - [Repository Structure](#repository-structure)
+  - [Getting help](#getting-help)
+  - [Citations](#citations)
+---
+
 
 ## High Level Flow
 
@@ -32,7 +42,7 @@ You have following ways to access JAX based checkpoints for UL2:
 
 ---
 
-## Getting started
+## Getting Started
 
 ### 1. Clone the GitHub repo
 
@@ -88,7 +98,7 @@ gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --project ${PROJEC
 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user "$(gcloud config get-value account)"
 ```
 
-### 2. Convert JAX checkpoint to FasterTransformer checkpoint
+### 3. Convert JAX checkpoint to FasterTransformer checkpoint
 
 The checkpoint format conversion from JAX to NVIDIA FasterTransformer is run on GKE cluster as a kubernetes Job on the GPU node pool. The source code for conversion script is located [here](./converter).
 
@@ -171,7 +181,7 @@ kubectl apply -k ./
 kubectl logs
 ```
 
-### 3. Serve FasterTransformer checkpoint with NVIDIA Triton
+### 4. Serve FasterTransformer checkpoint with NVIDIA Triton
 
 - Pull NVIDIA NeMo Inference container with NVIDIA Triton and FasterTransformer
   - Sign in to [NGC](https://ngc.nvidia.com/signin) and select organization as `ea-participants`
@@ -242,7 +252,7 @@ curl -v ${ISTIO_GATEWAY_IP_ADDRESS}/v2/health/ready
 
 If the returned status is `200OK` the server is up and accessible through the gateway.
 
-### 4. Run evaluation 
+### 5. Run evaluation 
 
 
 
@@ -258,7 +268,7 @@ If the returned status is `200OK` the server is up and accessible through the ga
 - `/converter`: Source for converting JAX checkpoints to FasterTransformer checkpoints
 - `/evaluator`: Source for running model evaluation on validation dataset with model hosted on NVIDIA Triton
 
-## Getting help
+## Getting Help
 If you have any questions or if you found any problems with this repository, please report through GitHub issues.
 
 ## Citations
