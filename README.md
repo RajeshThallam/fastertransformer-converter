@@ -34,7 +34,15 @@ You have following ways to access JAX based checkpoints for UL2:
 
 ## Getting started
 
-### 1. Environment setup
+### 1. Clone the GitHub repo
+
+``` bash
+cd ~
+git clone https://github.com/RajeshThallam/fastertransformer-converter
+cd ~/fastertransformer-converter
+```
+
+### 2. Environment setup
 
 Follow the environment setup guide [here](https://github.com/jarokaz/triton-on-gke-sandbox) to create a GKE cluster running NVIDIA Triton on GPU node pool using Terraform standardized template. The setup performs the following steps:
 
@@ -45,17 +53,39 @@ Follow the environment setup guide [here](https://github.com/jarokaz/triton-on-g
 - [ ] Configure and deploy Triton Inference Server
 - [ ] Run health check to validate the Triton deployment
 
+As part of the environment setup, you configure following environment variables:
+
+``` bash
+export PROJECT_ID=my-project-id
+export REGION=us-central1
+export ZONE=us-central1-a
+export NETWORK_NAME=my-gke-network
+export SUBNET_NAME=my-gke-subnet
+export GCS_BUCKET_NAME=my-triton-repository
+export GKE_CLUSTER_NAME=my-ft-gke
+export TRITON_SA_NAME=triton-sa
+export TRITON_NAMESPACE=triton
+```
+
 <div class="alert alert-block alert-warning"> 
     <p>
         <strong>⚠️ NOTE: </strong>
-Before you run through the setup, ensure the GPU node pool in the GKE cluster is configured with minimum 1 NVIDIA A100 GPU by setting the following variables. This is prerequisite for deploying large model, such as UL2, which is deployed with `bfloat16` (BF16) activation in this tutorial.
+Before running through the setup, ensure the GPU node pool in the GKE cluster is configured with minimum 1 NVIDIA A100 GPU by setting the following variables. This is prerequisite for deploying large model, such as UL2, which is deployed with `bfloat16` (BF16) activation in this tutorial.
     </p>
 </div>
 
-```
+``` bash
 export MACHINE_TYPE=a2-highgpu-1g
 export ACCELERATOR_TYPE=nvidia-tesla-a100
 export ACCELERATOR_COUNT=1
+```
+
+After provisioning the GKE cluster, configure access to the cluster:
+
+``` bash
+gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --project ${PROJECT_ID} --zone ${ZONE} 
+
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user "$(gcloud config get-value account)"
 ```
 
 ### 2. Convert JAX checkpoint to FasterTransformer checkpoint
@@ -64,71 +94,156 @@ The checkpoint format conversion from JAX to NVIDIA FasterTransformer is run on 
 
 - Create Docker repository in Google Artifact Registry to manage images
 
-    ``` bash
-    # Configure paramaters 
-    export PROJECT_ID=my-project-id               # <-- Change to your PROJECT_ID
-    export DOCKER_ARTIFACT_REPO=llm-inference     # <-- Change to your repo name
-    export REGION=us-central1                     # <-- Change to your region  
+``` bash
+# Configure parameters 
+export DOCKER_ARTIFACT_REPO=llm-inference     # <-- Change to your repo name
 
-    # Enable API
-    gcloud services enable artifactregistry.googleapis.com
+# Enable API
+gcloud services enable artifactregistry.googleapis.com
 
-    # Create repository
-    gcloud artifacts repositories create ${DOCKER_ARTIFACT_REPO} \
-        --repository-format=docker \
-        --location={REGION} \
-        --description="Triton Docker repository"
-    
-    # Authenticate to repository
-    gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
-    ```
+# Create repository
+gcloud artifacts repositories create ${DOCKER_ARTIFACT_REPO} \
+    --repository-format=docker \
+    --location={REGION} \
+    --description="Triton Docker repository"
+
+# Authenticate to repository
+gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+```
 
 - Build container image
 
-    ``` bash
-    # Configure container image name
-    export JAX_TO_FT_IMAGE_NAME="jax-to-fastertransformer"
-    export JAX_TO_FT_IMAGE_URI=${REGION}"-docker.pkg.dev/"${PROJECT_ID}"/"${DOCKER_ARTIFACT_REPO}"/"${JAX_TO_FT_IMAGE_NAME}
+``` bash
+# Configure container image name
+export JAX_TO_FT_IMAGE_NAME="jax-to-fastertransformer"
+export JAX_TO_FT_IMAGE_URI=${REGION}"-docker.pkg.dev/"${PROJECT_ID}"/"${DOCKER_ARTIFACT_REPO}"/"${JAX_TO_FT_IMAGE_NAME}
 
-    # Run Cloud Build job to build the container image
-    export FILE_LOCATION="./converter"
-    gcloud builds submit \
-      --region ${REGION} \
-      --config converter/cloudbuild.yaml \
-      --substitutions _IMAGE_URI=${JAX_TO_FT_IMAGE_URI},_FILE_LOCATION=${FILE_LOCATION} \
-      --timeout "2h" \
-      --machine-type=e2-highcpu-32 \
-      --quiet
-    ```
+# Change directory
+cd ~/fastertransformer-converter
 
-- Run conversion job
-  - Configure job parameters
-  ``` bash
-  kustomize
-  ```
-  - Deploy the configuration
-  ``` bash
-  echo
-  ```
-  - Run the job
-  ``` bash
-  echo
-  ```
+# Run Cloud Build job to build the container image
+export FILE_LOCATION="./converter"
+gcloud builds submit \
+  --region ${REGION} \
+  --config converter/cloudbuild.yaml \
+  --substitutions _IMAGE_URI=${JAX_TO_FT_IMAGE_URI},_FILE_LOCATION=${FILE_LOCATION} \
+  --timeout "2h" \
+  --machine-type=e2-highcpu-32 \
+  --quiet
+```
+
+- Copy UL2 checkpoints to your Google Cloud Storage bucket
+
+``` bash
+gcloud storage cp -r gs://se-checkpoints/ul2-xsum/ gs://${GCS_BUCKET_NAME}/models/
+```
+
+- Run conversion job start with configuring job parameters
+
+``` bash
+cd ~/fastertransformer-converter/env-setup/kustomize
+  
+cat << EOF > ~/fastertransformer-converter/converter/configs.env
+ksa=triton-sa
+converter_image_uri=$JAX_TO_FT_IMAGE_URI
+accelerator_count=1
+model_name=ul2
+gcs_jax_ckpt=gs://${GCS_BUCKET_NAME}/models/ul2-xsum/
+gcs_ft_ckpt=gs://${GCS_BUCKET_NAME}/triton_model_repository/ul2-ft/
+EOF
+```
+
+- Deploy the configuration
+
+``` bash
+kubectl kustomize ./
+```
+
+- Run the job
+
+``` bash
+kubectl apply -k ./
+```
+
+- Monitor the job
+
+``` bash
+kubectl logs
+```
 
 ### 3. Serve FasterTransformer checkpoint with NVIDIA Triton
 
 - Pull NVIDIA NeMo Inference container with NVIDIA Triton and FasterTransformer
+  - Sign in to [NGC](https://ngc.nvidia.com/signin) and select organization as `ea-participants`
+  - Get [API key from NGC](https://ngc.nvidia.com/setup/api-key ) to authorize docker client to access NGC Private Registry
+  - Authorize docker
+
+``` bash
+docker login nvcr.io
+
+Username: $oauthtoken
+Password: Your key
+```
+-  
+  - Push the container to your Docker repository in Cloud Artifact Registry 
+
+``` bash
+export TRITON_FT_IMAGE_URI=${REGION}"-docker.pkg.dev/"${PROJECT_ID}"/"${DOCKER_ARTIFACT_REPO}"/bignlp-inference:22.08-py3"
+
+docker pull nvcr.io/ea-bignlp/bignlp-inference:22.08-py3
+
+docker tag nvcr.io/ea-bignlp/bignlp-inference:22.08-py3 ${TRITON_FT_IMAGE_URI}
+
+docker push ${TRITON_FT_IMAGE_URI}
+```
+
 - Configure NVIDIA Triton Deployment parameters
-  - Configure Triton model repository
-  - Update NVIDIA Triton container image
+
+``` bash
+cd ~/triton-on-gke-sandbox/env-setup/kustomize
+
+cat << EOF > ~/triton-on-gke-sandbox/env-setup/kustomize/configs.env
+model_repository=gs://${GCS_BUCKET_NAME}/triton_model_repository/ul2-ft/
+ksa=${TRITON_SA_NAME}
+EOF
+```
+
+- Update NVIDIA Triton container image
+
+``` bash
+kustomize edit set image "nvcr.io/nvidia/tritonserver:22.01-py3="${TRITON_FT_IMAGE_URI}
+```
+
 - Deploy the configuration
+
+``` bash
+kubectl kustomize ./
+```
+
 - Deploy to the cluster
+
+``` bash
+kubectl apply -k ./
+```
+
+- Run health check
+
+To validate that NVIDIA Triton Inference Server has been deployed successfully try to access the server's health check API. You will access the server through Istio Ingress Gateway. Start by getting the external IP address of the  `istio-ingressgateway` service.
+
+```bash
+kubectl get services -n $TRITON_NAMESPACE
+
+# Invoke the health check API
+ISTIO_GATEWAY_IP_ADDRESS=$(kubectl get services -n $TRITON_NAMESPACE \
+   -o=jsonpath='{.items[?(@.metadata.name=="istio-ingressgateway")].status.loadBalancer.ingress[0].ip}')
+
+curl -v ${ISTIO_GATEWAY_IP_ADDRESS}/v2/health/ready
+```
+
+If the returned status is `200OK` the server is up and accessible through the gateway.
 
 ### 4. Run evaluation 
 
-
-### [Optional] Using locally with Notebook
-- Test on GCE VM with Vertex AI Workbench: To get familiar with the process, start with the notebook to run inference with NVIDIA Triton and FasterTransformer locally on User-Managed Vertex AI Workbench instance attached with 1 A100 GPU (`a2-highgpu-1`).
 
 
 ## Repository Structure
@@ -137,11 +252,9 @@ The checkpoint format conversion from JAX to NVIDIA FasterTransformer is run on 
 .
 ├── converter
 ├── evaluator
-├── notebooks
 └── README.md
 ```
 
-- `/notebooks`: Notebooks to run inference with NVIDIA Triton and FasterTransformer
 - `/converter`: Source for converting JAX checkpoints to FasterTransformer checkpoints
 - `/evaluator`: Source for running model evaluation on validation dataset with model hosted on NVIDIA Triton
 

@@ -1,0 +1,89 @@
+# Copyright 2023 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: triton
+
+resources:
+- job-converter.yaml
+
+replacements:
+- source:
+    fieldPath: data.ksa
+    kind: ConfigMap
+    name: converter-configs
+  targets:
+  - fieldPaths:
+    - spec.template.spec.serviceAccountName
+    select:
+      kind: Job
+      name: jax-to-ft-converter-job
+- source:
+    fieldPath: data.converter_image_uri
+    kind: ConfigMap
+    name: converter-configs
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=jax-to-ft-converter].image
+    select:
+      kind: Job
+      name: jax-to-ft-converter-job
+- source:
+    fieldPath: data.accelerator_count
+    kind: ConfigMap
+    name: converter-configs
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=jax-to-ft-converter].resources.limits.[nvidia.com/gpu]
+    - spec.template.spec.containers.[name=jax-to-ft-converter].command.5
+    select:
+      kind: Job
+      name: jax-to-ft-converter-job
+- source:
+    fieldPath: data.model_name
+    kind: ConfigMap
+    name: converter-configs
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=jax-to-ft-converter].command.2
+    select:
+      kind: Job
+      name: jax-to-ft-converter-job
+- source:
+    fieldPath: data.gcs_jax_ckpt
+    kind: ConfigMap
+    name: converter-configs
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=jax-to-ft-converter].command.3
+    select:
+      kind: Job
+      name: jax-to-ft-converter-job
+- source:
+    fieldPath: data.gcs_ft_ckpt
+    kind: ConfigMap
+    name: converter-configs
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=jax-to-ft-converter].command.4
+    select:
+      kind: Job
+      name: jax-to-ft-converter-job
+
+configMapGenerator:
+- envs:
+  - configs.env
+  name: converter-configs
